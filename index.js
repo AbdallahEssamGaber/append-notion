@@ -3,7 +3,8 @@ const { Client } = require("@notionhq/client");
 
 dotenv.config();
 
-const { NOTION_API_KEY, DATABASEID, SEARCHKEY } = process.env;
+const { NOTION_API_KEY, DATABASEID, SEARCHKEY, TOGGLECONTENT, INSIDECONTENT } =
+  process.env;
 
 const notion = new Client({ auth: NOTION_API_KEY });
 
@@ -30,16 +31,31 @@ async function append(pageId) {
       block_id: pageId,
       children: [
         {
-          heading_1: {
+          heading_3: {
             rich_text: [
               {
                 type: "text",
                 text: {
-                  content: "Test",
+                  content: TOGGLECONTENT,
                 },
               },
             ],
             is_toggleable: true,
+            children: [
+              {
+                type: "paragraph",
+                paragraph: {
+                  rich_text: [
+                    {
+                      type: "text",
+                      text: {
+                        content: INSIDECONTENT,
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
           },
         },
       ],
