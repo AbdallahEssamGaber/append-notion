@@ -423,11 +423,11 @@ async function main() {
         let response = await childrenList(page.id);
 
         response = response.results;
-        response.forEach(async (block) => {
-          if (block.type == "heading_3" && block.heading_3.is_toggleable) {
-            const blockContent = block.heading_3.rich_text[0].plain_text;
-            if (blockContent == "(Share) Presentation and Tasks (5 mins)") {
-              mainAppending(page.id, block.id);
+        response.forEach(async (block, index) => {
+          if (block.type == "heading_1") {
+            const blockContent = block.heading_1.rich_text[0].plain_text;
+            if (blockContent == "Glossaries") {
+              mainAppending(page.id, response[index - 1].id);
             }
           }
         });
