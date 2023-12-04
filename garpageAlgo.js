@@ -1,26 +1,54 @@
 const dotenv = require("dotenv");
 const { Client } = require("@notionhq/client");
+const chalk = require("chalk");
 
 dotenv.config();
 
-const { NOTION_API_KEY, DATABASEID, SEARCHKEY } = process.env;
+const { NOTION_API_KEY, DATABASEID } = process.env;
 
 const notion = new Client({ auth: NOTION_API_KEY });
 
-async function retrievePages() {
+// GLOBAL PROPS.
+const nameProp = "Teacher Guide Name";
+const searchKeys = [
+  "G1S2",
+  "G2S2",
+  "G3S2",
+  "G4S1",
+  "G4S2",
+  "G5S1",
+  "G5S2",
+  "G6S1",
+  "G6S2",
+  "G7S1",
+  "G7S2",
+  "G8S1",
+  "G8S2",
+  "G9S1",
+  "G9S2",
+  "G10S1",
+  "G10S2",
+  "G11S1",
+  "G11S2",
+];
+
+const affectedPages = [];
+const nonAffectedPages = [];
+
+async function retrievePages(searchKey) {
   try {
     const response = await notion.databases.query({
       database_id: DATABASEID,
       filter: {
-        property: "Name",
+        property: nameProp,
         rich_text: {
-          contains: SEARCHKEY,
+          contains: searchKey,
         },
       },
     });
     return response.results;
   } catch (error) {
-    console.error(error);
+    console.error(chalk.red(error));
   }
 }
 
@@ -31,7 +59,7 @@ async function childrenList(id) {
     });
     return response;
   } catch (error) {
-    console.error(error);
+    console.error(chalk.red(error));
   }
 }
 
@@ -392,7 +420,7 @@ async function mainAppending(pageId, blockId) {
       },
     ]);
   } catch (error) {
-    console.error("Error appending blocks:", error);
+    console.error(chalk.red("Error appending blocks:", error));
   }
 }
 
@@ -405,10 +433,10 @@ async function appendBlocks(pageId, blockId, blocks) {
     });
     response = response.results;
     const lastItem = response[blocks.length - 1];
-    console.log(response);
+    // console.log(response);
     return lastItem.id;
   } catch (error) {
-    console.error("Error appending block above:", error);
+    console.error(chalk.red("Error appending block above:", error));
   }
 }
 
@@ -417,22 +445,66 @@ const sleep = (milliseconds) => {
 };
 
 async function main() {
-  const resPages = await retrievePages();
-  resPages.length // Check if there are pages to append into
-    ? resPages.forEach(async (page) => {
-        let response = await childrenList(page.id);
-
-        response = response.results;
-        response.forEach(async (block, index) => {
-          if (block.type == "heading_1") {
-            const blockContent = block.heading_1.rich_text[0].plain_text;
-            if (blockContent == "Glossaries") {
-              mainAppending(page.id, response[index - 1].id);
+  try {
+    // loop through searchKeys
+    for (const searchKey of searchKeys) {
+      const resPages = await retrievePages(searchKey);
+      if (resPages.length) {
+        //If pages are there.
+        resPages.forEach(async (page) => {
+          let response = await childrenList(page.id);
+          const pageName = page.properties[nameProp].title[0].plain_text;
+          response = response.results;
+          if (response.length !== 0) {
+            const toggleAvail = response.filter(
+              //To check if the block you want to add already there.
+              (obj) =>
+                obj.heading_3 &&
+                obj.heading_3.is_toggleable &&
+                obj.heading_3.rich_text[0].plain_text ==
+                  "Publishing the project with the student"
+            );
+            if (toggleAvail.length == 0) {
+              response.forEach(async (block, index) => {
+                if (block.type == "heading_1") {
+                  const blockContent = block.heading_1.rich_text[0].plain_text;
+                  if (blockContent == "Glossaries") {
+                    mainAppending(page.id, response[index - 1].id);
+                    affectedPages.push(pageName);
+                  }
+                }
+                sleep(300);
+              });
+            } else {
+              console.log(
+                chalk.yellow("The block already appended! in ", pageName)
+              );
+              nonAffectedPages.push(pageName);
             }
+          } else {
+            console.log(chalk.yellow("No blocks found in ", pageName));
+            nonAffectedPages.push(pageName);
           }
         });
-      })
-    : console.log("No pages found.");
+      } else {
+        console.log(chalk.yellow("No pages found with the filter", searchKey));
+      }
+      console.log(chalk.green(searchKey, " Done!"));
+      console.log(chalk.green("Total pages : " + resPages.length));
+      console.log(chalk.green("Affected Pages: " + affectedPages.join("  ")));
+      console.log(
+        chalk.green("Non Affected Pages: " + nonAffectedPages.join("  "))
+      );
+      console.log(
+        "-----------------------------------------------------------------------------"
+      );
+      sleep(500);
+      affectedPages.length = 0;
+      nonAffectedPages.length = 0;
+    }
+  } catch (error) {
+    console.error(chalk.red("Error Main function:", error));
+  }
 }
 
 main();
